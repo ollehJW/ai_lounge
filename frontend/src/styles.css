@@ -38,11 +38,24 @@ button { cursor: pointer; }
   background: linear-gradient(180deg, #0b2f91 0%, #061f63 100%);
   color: rgba(255,255,255,0.82);
 }
+.sidebar-head {
+  display: flex;
+  align-items: flex-start;
+  gap: 10px;
+  padding-bottom: 18px;
+}
 .brand {
   display: flex;
   gap: 12px;
   align-items: center;
-  padding-bottom: 24px;
+}
+.brand-button {
+  width: 100%;
+  border: 0;
+  padding: 0;
+  background: transparent;
+  color: inherit;
+  text-align: left;
 }
 .brand-mark {
   display: grid;
@@ -54,14 +67,49 @@ button { cursor: pointer; }
   color: white;
   font-weight: 800;
 }
+.group-toggle {
+  flex: 0 0 auto;
+  width: 34px;
+  height: 34px;
+  border-radius: 12px;
+  border: 1px solid rgba(255,255,255,0.16);
+  background: rgba(255,255,255,0.08);
+  color: #fff;
+  font-size: 18px;
+  line-height: 1;
+}
 .brand p, .sidebar-card p, .nav-item { color: rgba(255,255,255,0.74); }
-.nav-list { display: grid; gap: 6px; }
+.nav-list { display: grid; gap: 10px; }
+.nav-group {
+  display: grid;
+  gap: 6px;
+  padding: 8px;
+  border-radius: 18px;
+  background: rgba(255,255,255,0.06);
+  border: 1px solid rgba(255,255,255,0.1);
+}
 .nav-item {
+  width: 100%;
+  border: 0;
+  text-align: left;
   padding: 11px 12px;
   border-radius: 12px;
   transition: 0.2s ease;
+  background: transparent;
 }
 .nav-item:hover, .nav-item.active { background: rgba(255,255,255,0.12); color: white; }
+.nav-nest {
+  display: grid;
+  gap: 4px;
+  margin-left: 12px;
+  padding-left: 10px;
+  border-left: 1px solid rgba(255,255,255,0.14);
+}
+.nav-item.nested {
+  font-size: 13px;
+  padding: 10px 12px;
+}
+.admin-link { margin-top: 4px; }
 .sidebar-card {
   margin-top: 22px;
   padding: 16px;
@@ -544,6 +592,7 @@ th, td { padding: 12px 14px; border-bottom: 1px solid var(--line); text-align: l
 @media (max-width: 1100px) {
   .app-shell, .catalog-layout, .split-grid, .schema-columns, .form-grid, .hero-card, .drawer-metrics, .info-grid { grid-template-columns: 1fr; }
   .sidebar { position: static; height: auto; }
+  .sidebar-head { align-items: center; }
 }
 @media (max-width: 700px) {
   .page-body { padding: 16px; }

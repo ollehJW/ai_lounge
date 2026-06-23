@@ -1,7 +1,7 @@
 ﻿import { useDeferredValue, useEffect, useState } from 'react'
 import axios from 'axios'
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query'
-import { NavLink, Route, Routes, useNavigate, useParams } from 'react-router-dom'
+import { NavLink, Route, Routes, useLocation, useNavigate, useParams } from 'react-router-dom'
 
 const api = axios.create({ baseURL: '/api' })
 
@@ -134,13 +134,6 @@ const scenarios = [
   '월별 판매와 생산 계획 데이터를 기반으로 부품 수요를 예측하고 싶습니다.',
 ]
 
-const menu = [
-  { to: '/', label: 'AI 프로젝트 탐색' },
-  { to: '/registry', label: 'AI 자산 등록' },
-  { to: '/admin', label: 'Admin 관리자' },
-  { to: '/placeholders/newsletter', label: 'AX Community' },
-]
-
 function scoreMatch(project: Project, text: string) {
   const normalized = text.toLowerCase()
   let score = project.score - 8
@@ -184,39 +177,76 @@ function projectCerts(project: Project) {
 }
 
 function App() {
+  const navigate = useNavigate()
+  const location = useLocation()
+  const [studioOpen, setStudioOpen] = useState(true)
+
+  const pageTitle = {
+    '/': 'Home',
+    '/catalog': '기술 자산 목록',
+    '/registry': '기술 자산 등록',
+    '/admin': 'Admin 관리자',
+  }[location.pathname] ?? 'AI Studio Portal'
+
+  const goHome = () => {
+    setStudioOpen(true)
+    navigate('/')
+  }
+
+
   return (
     <div className="app-shell">
       <aside className="sidebar">
-        <div className="brand">
-          <span className="brand-mark">WIA</span>
-          <div>
-            <strong>AI Studio</strong>
-            <p>Mockup to product</p>
-          </div>
+        <div className="sidebar-head">
+          <button className="brand brand-button" onClick={goHome}>
+            <span className="brand-mark">WIA</span>
+            <div>
+              <strong>AI STUDIO</strong>
+              <p>클릭 시 홈으로 이동</p>
+            </div>
+          </button>
+          <button
+            className="group-toggle"
+            onClick={() => setStudioOpen((current) => !current)}
+            aria-label={studioOpen ? '접기' : '펼치기'}
+          >
+            {studioOpen ? '-' : '+'}
+          </button>
         </div>
+
         <nav className="nav-list">
-          {menu.map((item) => (
-            <NavLink key={item.to} to={item.to} className={({ isActive }) => (isActive ? 'nav-item active' : 'nav-item')} end={item.to === '/'}>
-              {item.label}
-            </NavLink>
-          ))}
+          {studioOpen && (
+            <div className="nav-group">
+              <NavLink to="/" className={({ isActive }) => (isActive ? 'nav-item active' : 'nav-item')} end onClick={() => setStudioOpen(true)}>
+                Home
+              </NavLink>
+              <NavLink to="/catalog" className={({ isActive }) => (isActive ? 'nav-item active' : 'nav-item')} onClick={() => setStudioOpen(true)}>
+                기술 자산 목록
+              </NavLink>
+              <NavLink to="/registry" className={({ isActive }) => (isActive ? 'nav-item active' : 'nav-item')} onClick={() => setStudioOpen(true)}>
+                기술 자산 등록
+              </NavLink>
+            </div>
+          )}
+
+          <NavLink to="/admin" className={({ isActive }) => (isActive ? 'nav-item active admin-link' : 'nav-item admin-link')}>
+            Admin 관리자
+          </NavLink>
         </nav>
-        <div className="sidebar-card">
-          <strong>Portal Notes</strong>
-          <p>목업 데이터는 FastAPI + SQLite로 이관했고, 미정의 화면은 플레이스홀더 라우트로 연결했습니다.</p>
-        </div>
+
       </aside>
       <main className="main-panel">
         <header className="topbar">
           <div>
             <p className="eyebrow">HYUNDAI WIA</p>
-            <h1>AI Studio Portal</h1>
+            <h1>{pageTitle}</h1>
           </div>
           <div className="topbar-chip">FastAPI · React · SQLite</div>
         </header>
         <div className="page-body">
           <Routes>
             <Route path="/" element={<HomePage />} />
+            <Route path="/catalog" element={<AssetCatalogPage />} />
             <Route path="/projects/:projectId" element={<ProjectDetailPage />} />
             <Route path="/admin" element={<AdminPage />} />
             <Route path="/registry" element={<RegistryPage />} />
@@ -230,6 +260,133 @@ function App() {
 
 function HomePage() {
   const navigate = useNavigate()
+  const [drawerProjectId, setDrawerProjectId] = useState<string | null>(null)
+  const [drawerTab, setDrawerTab] = useState('overview')
+
+  const projectsQuery = useQuery({ queryKey: ['projects'], queryFn: async () => (await api.get<Project[]>('/projects')).data })
+  const bookmarksQuery = useQuery({ queryKey: ['bookmarks'], queryFn: async () => (await api.get<Bookmarks>('/bookmarks')).data })
+  const dashboardQuery = useQuery({ queryKey: ['impact-dashboard'], queryFn: async () => (await api.get<ImpactDashboard>('/impact-dashboard')).data })
+  const leaderboardQuery = useQuery({ queryKey: ['leaderboard'], queryFn: async () => (await api.get<Leaderboard>('/leaderboard')).data })
+  const adminQuery = useQuery({ queryKey: ['admin-settings'], queryFn: async () => (await api.get<AdminSettings>('/admin/settings')).data })
+
+  const projects = projectsQuery.data ?? []
+  const bookmarked = new Set(bookmarksQuery.data?.project_ids ?? [])
+  const bookmarkedProjects = projects.filter((project) => bookmarked.has(project.id))
+
+  return (
+    <div className="page-stack">
+      <section className="hero-card">
+        <div>
+          <p className="eyebrow">AI PORTAL</p>
+          <h2>목업 기반 AI 자산 포털</h2>
+          <p className="hero-copy">프로젝트 현황, 운영 임팩트, 재사용 자산, 컬렉션, 기여자 랭킹을 한 눈에 볼 수 있도록 Home을 다시 구성했습니다.</p>
+          <div className="hero-actions">
+            <button className="primary-btn" onClick={() => navigate('/catalog')}>기술 자산 목록 보기</button>
+            <button className="ghost-btn" onClick={() => navigate('/registry')}>기술 자산 등록</button>
+          </div>
+        </div>
+        <div className="hero-grid">
+          <article className="mini-panel"><strong>{projects.length}</strong><span>시드 프로젝트</span></article>
+          <article className="mini-panel"><strong>{dashboardQuery.data?.kpis[1]?.value ?? '-'}</strong><span>누적 재사용</span></article>
+          <article className="mini-panel"><strong>{adminQuery.data?.registry_enabled ? 'ON' : 'OFF'}</strong><span>등록 기능</span></article>
+          <article className="mini-panel"><strong>{leaderboardQuery.data?.leaders[0]?.owner ?? '-'}</strong><span>현재 리더</span></article>
+        </div>
+      </section>
+
+      <section className="split-grid" id="impact">
+        <div className="section-card">
+          <SectionHead title="임팩트 대시보드" description="목업 KPI와 분포 차트를 API에서 받아 렌더링합니다." />
+          <div className="kpi-grid">
+            {(dashboardQuery.data?.kpis ?? []).map((item) => (
+              <article key={item.label} className="kpi-card">
+                <span>{item.label}</span>
+                <strong>{item.value}</strong>
+                <p>{item.desc}</p>
+              </article>
+            ))}
+          </div>
+          <div className="chart-card">
+            {(dashboardQuery.data?.monthly ?? []).map((item) => (
+              <div key={item.month} className="bar-col">
+                <div className="bar-stack">
+                  <i style={{ height: `${item.registered}px` }} />
+                  <i className="alt" style={{ height: `${item.adopted * 2}px` }} />
+                </div>
+                <span>{item.month}</span>
+              </div>
+            ))}
+          </div>
+        </div>
+        <div className="stack-card">
+          <div className="section-card compact">
+            <SectionHead title="출처 분포" description="시드 프로젝트 기준" />
+            {(dashboardQuery.data?.source_distribution ?? []).map((item) => <DistributionRow key={item.label} {...item} />)}
+          </div>
+          <div className="section-card compact">
+            <SectionHead title="업무 영역 분포" description="카탈로그 기준" />
+            {(dashboardQuery.data?.domain_distribution ?? []).map((item) => <DistributionRow key={item.label} {...item} />)}
+          </div>
+          <div className="section-card compact">
+            <SectionHead title="Top 재사용 자산" description="재사용 횟수 기준" />
+            {(dashboardQuery.data?.top_assets ?? []).map((item, index) => (
+              <div key={item.id} className="list-row">
+                <span>{index + 1}</span>
+                <div>
+                  <strong>{item.title}</strong>
+                  <p>{item.source} · {item.maturity}</p>
+                </div>
+                <b>{item.reuse}</b>
+              </div>
+            ))}
+          </div>
+        </div>
+      </section>
+
+      <section className="section-card">
+        <SectionHead title="내 컬렉션" description="북마크 API와 연결된 저장 자산" />
+        {bookmarkedProjects.length > 0 ? (
+          <div className="collection-grid">
+            {bookmarkedProjects.map((project) => (
+              <article key={project.id} className="collection-card">
+                <span className="source-pill">{project.source}</span>
+                <strong>{project.title}</strong>
+                <p>{project.description}</p>
+                <button className="ghost-btn slim" onClick={() => { setDrawerProjectId(project.id); setDrawerTab('overview') }}>열기</button>
+              </article>
+            ))}
+          </div>
+        ) : (
+          <EmptyCard title="저장된 컬렉션이 없습니다." compact />
+        )}
+      </section>
+
+      <section className="section-card">
+        <SectionHead title="기여자 랭킹" description="목업 로직과 동일하게 조직 단위 점수를 계산합니다." />
+        <div className="leaderboard-list">
+          {(leaderboardQuery.data?.leaders ?? []).map((leader, index) => (
+            <div key={leader.owner} className="leader-row">
+              <span>{index + 1}</span>
+              <div>
+                <strong>{leader.owner}</strong>
+                <p>{leader.source} · 자산 {leader.assets}건 · 재사용 {leader.reuse}회</p>
+              </div>
+              <b>{Math.round(leader.score)}</b>
+            </div>
+          ))}
+        </div>
+      </section>
+
+      <ProjectDrawer
+        projectId={drawerProjectId}
+        initialTab={drawerTab}
+        onClose={() => setDrawerProjectId(null)}
+        onTabChange={setDrawerTab}
+      />
+    </div>
+  )
+}
+
+function AssetCatalogPage() {
   const queryClient = useQueryClient()
   const [search, setSearch] = useState('')
   const [sort, setSort] = useState('recommend')
@@ -243,9 +400,6 @@ function HomePage() {
   const filtersQuery = useQuery({ queryKey: ['filters'], queryFn: async () => (await api.get<FilterGroup[]>('/filters')).data })
   const projectsQuery = useQuery({ queryKey: ['projects'], queryFn: async () => (await api.get<Project[]>('/projects')).data })
   const bookmarksQuery = useQuery({ queryKey: ['bookmarks'], queryFn: async () => (await api.get<Bookmarks>('/bookmarks')).data })
-  const dashboardQuery = useQuery({ queryKey: ['impact-dashboard'], queryFn: async () => (await api.get<ImpactDashboard>('/impact-dashboard')).data })
-  const leaderboardQuery = useQuery({ queryKey: ['leaderboard'], queryFn: async () => (await api.get<Leaderboard>('/leaderboard')).data })
-  const adminQuery = useQuery({ queryKey: ['admin-settings'], queryFn: async () => (await api.get<AdminSettings>('/admin/settings')).data })
 
   const bookmarkToggle = useMutation({
     mutationFn: async (projectId: string) => (await api.post(`/bookmarks/${projectId}/toggle`)).data,
@@ -270,24 +424,6 @@ function HomePage() {
 
   return (
     <div className="page-stack">
-      <section className="hero-card">
-        <div>
-          <p className="eyebrow">AI PORTAL</p>
-          <h2>목업 기반 AI 자산 포털</h2>
-          <p className="hero-copy">카탈로그, 샌드박스 실행, 운영 임팩트, 관리자 설정, 신규 자산 등록 흐름을 하나의 프론트엔드로 연결했습니다.</p>
-          <div className="hero-actions">
-            <a className="primary-btn" href="#catalog">프로젝트 탐색</a>
-            <a className="ghost-btn" href="#impact">임팩트 보기</a>
-          </div>
-        </div>
-        <div className="hero-grid">
-          <article className="mini-panel"><strong>{projects.length}</strong><span>시드 프로젝트</span></article>
-          <article className="mini-panel"><strong>{dashboardQuery.data?.kpis[1]?.value ?? '-'}</strong><span>누적 재사용</span></article>
-          <article className="mini-panel"><strong>{adminQuery.data?.registry_enabled ? 'ON' : 'OFF'}</strong><span>등록 기능</span></article>
-          <article className="mini-panel"><strong>{leaderboardQuery.data?.leaders[0]?.owner ?? '-'}</strong><span>현재 리더</span></article>
-        </div>
-      </section>
-
       <section className="section-card" id="matching">
         <SectionHead title="LLM 자산 매칭" description="목업의 추천 흐름을 React에서 재구성했습니다." />
         <textarea className="prompt-box" value={taskText} onChange={(event) => setTaskText(event.target.value)} placeholder="예: 검사 이미지와 설비 센서 데이터를 이용해서 조립 공정의 불량 가능성을 사전에 예측하고 싶습니다." />
@@ -401,103 +537,6 @@ function HomePage() {
         </div>
       </section>
 
-      <section className="split-grid" id="impact">
-        <div className="section-card">
-          <SectionHead title="임팩트 대시보드" description="목업 KPI와 분포 차트를 API에서 받아 렌더링합니다." />
-          <div className="kpi-grid">
-            {(dashboardQuery.data?.kpis ?? []).map((item) => (
-              <article key={item.label} className="kpi-card">
-                <span>{item.label}</span>
-                <strong>{item.value}</strong>
-                <p>{item.desc}</p>
-              </article>
-            ))}
-          </div>
-          <div className="chart-card">
-            {(dashboardQuery.data?.monthly ?? []).map((item) => (
-              <div key={item.month} className="bar-col">
-                <div className="bar-stack">
-                  <i style={{ height: `${item.registered}px` }} />
-                  <i className="alt" style={{ height: `${item.adopted * 2}px` }} />
-                </div>
-                <span>{item.month}</span>
-              </div>
-            ))}
-          </div>
-        </div>
-        <div className="stack-card">
-          <div className="section-card compact">
-            <SectionHead title="출처 분포" description="시드 프로젝트 기준" />
-            {(dashboardQuery.data?.source_distribution ?? []).map((item) => <DistributionRow key={item.label} {...item} />)}
-          </div>
-          <div className="section-card compact">
-            <SectionHead title="업무 영역 분포" description="카탈로그 기준" />
-            {(dashboardQuery.data?.domain_distribution ?? []).map((item) => <DistributionRow key={item.label} {...item} />)}
-          </div>
-          <div className="section-card compact">
-            <SectionHead title="Top 재사용 자산" description="재사용 횟수 기준" />
-            {(dashboardQuery.data?.top_assets ?? []).map((item, index) => (
-              <div key={item.id} className="list-row">
-                <span>{index + 1}</span>
-                <div>
-                  <strong>{item.title}</strong>
-                  <p>{item.source} · {item.maturity}</p>
-                </div>
-                <b>{item.reuse}</b>
-              </div>
-            ))}
-          </div>
-        </div>
-      </section>
-
-      <section className="split-grid">
-        <div className="section-card">
-          <SectionHead title="AX Community" description="정의되지 않은 화면은 형태만 구현했습니다." />
-          <div className="community-grid">
-            <button className="community-card" onClick={() => navigate('/placeholders/newsletter')}>
-              <strong>AI Trend News Letter</strong>
-              <p>뉴스레터 발행 화면 골격</p>
-            </button>
-            <button className="community-card" onClick={() => navigate('/placeholders/ask-anything')}>
-              <strong>AI 무엇이든 물어보살</strong>
-              <p>질문/답변 허브 화면 골격</p>
-            </button>
-            <button className="community-card" onClick={() => navigate('/placeholders/best-practice')}>
-              <strong>Best Practice 공유</strong>
-              <p>사례 등록 화면 골격</p>
-            </button>
-          </div>
-        </div>
-        <div className="section-card">
-          <SectionHead title="내 컬렉션" description="북마크 API와 연결된 저장 자산" />
-          <div className="collection-grid">
-            {projects.filter((project) => bookmarked.has(project.id)).map((project) => (
-              <article key={project.id} className="collection-card">
-                <span className="source-pill">{project.source}</span>
-                <strong>{project.title}</strong>
-                <p>{project.description}</p>
-                <button className="ghost-btn slim" onClick={() => { setDrawerProjectId(project.id); setDrawerTab('overview') }}>열기</button>
-              </article>
-            ))}
-          </div>
-        </div>
-      </section>
-
-      <section className="section-card">
-        <SectionHead title="기여자 랭킹" description="목업 로직과 동일하게 조직 단위 점수를 계산합니다." />
-        <div className="leaderboard-list">
-          {(leaderboardQuery.data?.leaders ?? []).map((leader, index) => (
-            <div key={leader.owner} className="leader-row">
-              <span>{index + 1}</span>
-              <div>
-                <strong>{leader.owner}</strong>
-                <p>{leader.source} · 자산 {leader.assets}건 · 재사용 {leader.reuse}회</p>
-              </div>
-              <b>{Math.round(leader.score)}</b>
-            </div>
-          ))}
-        </div>
-      </section>
       <ProjectDrawer
         projectId={drawerProjectId}
         initialTab={drawerTab}
@@ -507,7 +546,6 @@ function HomePage() {
     </div>
   )
 }
-
 
 function ProjectDrawer({
   projectId,
@@ -977,7 +1015,7 @@ function AdminPage() {
       <section className="hero-card compact-hero">
         <div>
           <p className="eyebrow">ADMIN</p>
-          <h2>AI 자산 등록 설정</h2>
+          <h2>기술 자산 등록 설정</h2>
           <p className="hero-copy">목업의 토글, 출처 관리, 템플릿 관리 영역을 실제 API와 연결했습니다.</p>
         </div>
         <button className={settings.registry_enabled ? 'toggle-btn active' : 'toggle-btn'} onClick={() => toggleMutation.mutate(!settings.registry_enabled)}>
@@ -1056,14 +1094,14 @@ function RegistryPage() {
 
   if (settingsQuery.isLoading) return <LoadingCard />
   if (!settingsQuery.data) return <EmptyCard title="등록 설정을 불러오지 못했습니다." />
-  if (!settingsQuery.data.registry_enabled) return <EmptyCard title="현재 신규 AI 자산 등록 기능이 비활성화되어 있습니다." />
+  if (!settingsQuery.data.registry_enabled) return <EmptyCard title="현재 신규 기술 자산 등록 기능이 비활성화되어 있습니다." />
 
   return (
     <div className="page-stack">
       <section className="hero-card compact-hero">
         <div>
           <p className="eyebrow">REGISTRY</p>
-          <h2>신규 AI 자산 등록</h2>
+          <h2>신규 기술 자산 등록</h2>
           <p className="hero-copy">목업의 LLM 자동 체크 흐름과 등록 요청 폼을 실제 API와 연결했습니다.</p>
         </div>
         <div className="tab-row">
