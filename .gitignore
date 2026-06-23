@@ -1,0 +1,21 @@
+# Python environments
+.venv/
+venv/
+env/
+__pycache__/
+*.pyc
+
+# Local environment files
+.env
+.env.*
+
+# Databases
+*.db
+*.sqlite3
+
+# Node dependencies and build output
+frontend/node_modules/
+frontend/dist/
+
+# Local mock/reference artifacts
+AI Studio 목업.html
